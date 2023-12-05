@@ -9,18 +9,6 @@ import matplotlib.pyplot as plt
 
 import utils
 
-"""
-2. (a) 
-Expressiveness:
-
-Logistic Regression: This model is a linear classifier. When using pixel values as features, it attempts to separate classes using a linear decision boundary. Its expressiveness is limited to linear relationships in the data. It cannot model complex patterns or interactions between features effectively.
-Multi-Layer Perceptron with ReLU Activations: MLPs are capable of modeling non-linear relationships. The ReLU (Rectified Linear Unit) activation function introduces non-linearity into the network. This non-linearity, combined with multiple layers (hence, the term "deep" in deep learning), allows the MLP to learn more complex patterns and interactions between features than logistic regression. The depth and non-linear activations make MLPs more expressive for tasks like image classification, where pixel relationships are non-linear and complex.
-Training Complexity:
-
-Logistic Regression: The optimization problem in logistic regression is convex, meaning there is a single global minimum. Gradient descent methods are guaranteed to converge to this global minimum. This makes training logistic regression models relatively straightforward and computationally less intensive.
-Multi-Layer Perceptron: Training MLPs is more complex. The presence of multiple layers and non-linear activations turns the optimization problem into a non-convex one. This means there can be multiple local minima, and gradient descent methods might not necessarily converge to the global minimum. Training MLPs requires careful tuning of parameters (like learning rates, initialization, etc.) and can be more computationally intensive.
-In summary, while MLPs with ReLU activations are more expressive and capable of capturing complex patterns in data like images, their training process is more complex and computationally demanding compared to logistic regression, which is easier to train due to its convex optimization landscape but is less expressive due to its linear nature."""
-
 def relu(x):
     return np.maximum(0, x)
 
