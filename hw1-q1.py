@@ -13,13 +13,11 @@ def relu(x):
     return np.maximum(0, x)
 
 def relu_derivative(x):
-    return (x > 0) * 1
+    return (x > 0) * 1.
 
 def softmax(x):
-    e_x = np.exp(x - np.max(x, axis=1, keepdims=True))
-    return e_x / np.sum(e_x, axis=1, keepdims=True)
-
-softmax = lambda x: np.exp(x) / np.sum(np.exp(x))
+    e_x = np.exp(x - np.max(x, axis=-1, keepdims=True))
+    return e_x / np.sum(e_x, axis=-1, keepdims=True)
 
 class LinearModel(object):
     def __init__(self, n_classes, n_features, **kwargs):
@@ -57,18 +55,11 @@ class Perceptron(LinearModel):
         other arguments are ignored
         """
         # Q1.1a
-        y_pred = np.argmax(self.W @ x_i)
-        if y_pred != y_i:
+        y_hat = np.argmax(self.W @ x_i)
+        if y_hat != y_i:
             self.W[y_i, :] += x_i
-            self.W[y_pred, :] -= x_i
+            self.W[y_hat, :] -= x_i
 
-"""
-    def update_weight(self, x_i, y_i, learning_rate=0.001):
-        prediction = self.predict(x_i[np.newaxis, :])[0] # Single prediction
-        if prediction != y_i:
-            self.W[y_i, :] += learning_rate * x_i # Correct class weight increase
-            self.W[prediction, :] -= learning_rate * x_i # Incorrect class weight decrease
- """
 class LogisticRegression(LinearModel):
     def update_weight(self, x_i, y_i, learning_rate=0.001):
         """
@@ -77,23 +68,12 @@ class LogisticRegression(LinearModel):
         learning_rate (float): keep it at the default value for your plots
         """
         # Q1.1b
-        n_classes = np.size(self.W, 0)
-        y_one_hot = np.zeros((n_classes, 1))
-        y_one_hot[y_i] = 1
-        y_probs = softmax(self.W @ x_i)[:, np.newaxis]
-        self.W += learning_rate * (y_one_hot - y_probs) @ x_i[:, np.newaxis].T
-"""
-    def update_weight(self, x_i, y_i, learning_rate=0.001):
         scores = self.W @ x_i
-        probabilities = self._softmax(scores)
-        y_one_hot = np.zeros_like(scores)
+        probabilities = softmax(scores)
+        y_one_hot = np.zeros_like(probabilities)
         y_one_hot[y_i] = 1
         self.W += learning_rate * np.outer(y_one_hot - probabilities, x_i)
 
-    def _softmax(self, scores):
-        exp_scores = np.exp(scores - np.max(scores))
-        return exp_scores / exp_scores.sum()
-"""
 
 class MLP(object):
     # Q3.2b. This MLP skeleton code allows the MLP to be used in place of the
@@ -105,17 +85,26 @@ class MLP(object):
         self.b1 = np.zeros(hidden_size)
         self.W2 = np.random.normal(0.1, np.sqrt(0.1), (n_classes, hidden_size))
         self.b2 = np.zeros(n_classes)
+    
+    def loss(self, y_hat, y):
+        # Cross entropy loss
+        loss = np.sum(-y @ np.log(y_hat.T))
+        return loss
+
+    def forward(self, X):
+        z1 = X @ self.W1.T + self.b1
+        h1 = relu(z1)
+        z2 = h1 @ self.W2.T + self.b2
+        probabilities = softmax(z2)
+        return (z1, h1, z2), probabilities
 
     def predict(self, X):
         # Compute the forward pass of the network. At prediction time, there is
         # no need to save the values of hidden nodes, whereas this is required
         # at training time.
         # Forward pass
-        hidden = relu(np.dot(X, self.W1.T) + self.b1)
-        scores = np.dot(hidden, self.W2.T) + self.b2
-        probabilities = softmax(scores)
-        return np.argmax(probabilities, axis=1)
-    
+        _, probabilities = self.forward(X)
+        return np.argmax(probabilities, axis=-1)
 
     def evaluate(self, X, y):
         """
@@ -126,41 +115,44 @@ class MLP(object):
         y_hat = self.predict(X)
         n_correct = (y == y_hat).sum()
         n_possible = y.shape[0]
-        return n_correct / n_possible
+        return n_correct / n_possible 
 
     def train_epoch(self, X, y, learning_rate=0.001):
         """
         Dont forget to return the loss of the epoch.
         """
-        y_one_hot = np.zeros((X.shape[0], self.W2.shape[0]))
-        y_one_hot[np.arange(X.shape[0]), y] = 1
+        n, p = X.shape
+        y_one_hot = np.zeros((n, self.W2.shape[0]))
+        y_one_hot[np.arange(n), y] = 1
+        total_loss = 0
 
-        # Forward pass
-        hidden_input = np.dot(X, self.W1.T) + self.b1
-        hidden_output = relu(hidden_input)
-        output = np.dot(hidden_output, self.W2.T) + self.b2
-        output_probabilities = softmax(output)
+        for x,y_ohe in zip(X, y_one_hot):
+            # Forward pass
+            (z1, h1, z2), y_hat = self.forward(x[np.newaxis, :]) 
 
-        # Compute loss (Cross-entropy)
-        loss = -np.mean(np.log(output_probabilities[np.arange(X.shape[0]), y]))
+            # Compute loss 
+            loss = self.loss(y_hat, y_ohe[np.newaxis, :])
+            total_loss += loss
 
-        # Backward pass
-        output_error = output_probabilities - y_one_hot
-        hidden_error = relu_derivative(hidden_input) * np.dot(output_error, self.W2)
+            # Backward pass
+            dz2 = y_hat - y_ohe
+        
+            # Compute gradients
+            dW2 = dz2.T @ h1
+            db2 = np.sum(dz2, axis=0)
 
-        # Compute gradients
-        dW2 = np.dot(output_error.T, hidden_output)
-        db2 = np.sum(output_error, axis=0)
-        dW1 = np.dot(hidden_error.T, X)
-        db1 = np.sum(hidden_error, axis=0)
+            dh1 = dz2 @ self.W2
+            dz1 = dh1 * relu_derivative(z1)
+            dW1 = np.outer(dz1, x)
+            db1 = np.sum(dz1, axis=0)
 
-        # Update weights and biases
-        self.W1 -= learning_rate * dW1
-        self.b1 -= learning_rate * db1
-        self.W2 -= learning_rate * dW2
-        self.b2 -= learning_rate * db2
+            # Update weights and biases
+            self.W1 -= learning_rate * dW1
+            self.b1 -= learning_rate * db1
+            self.W2 -= learning_rate * dW2
+            self.b2 -= learning_rate * db2
 
-        return loss
+        return total_loss
 
 
 def plot(epochs, train_accs, val_accs):
