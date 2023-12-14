@@ -152,7 +152,7 @@ class MLP(object):
             self.W2 -= learning_rate * dW2
             self.b2 -= learning_rate * db2
 
-        return total_loss
+        return total_loss / X.shape[0]
 
 
 def plot(epochs, train_accs, val_accs):
